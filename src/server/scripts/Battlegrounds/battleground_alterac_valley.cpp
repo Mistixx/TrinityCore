@@ -15,12 +15,15 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "BattlegroundBFG.h"
 
-BattlegroundBFG::BattlegroundBFG()
-{
-}
+#include "BattlegroundScript.h"
 
-BattlegroundBFG::~BattlegroundBFG()
+struct battleground_alterac_valley : public BattlegroundScript
 {
+    explicit battleground_alterac_valley(BattlegroundMap* map) : BattlegroundScript(map) { }
+};
+
+void AddSC_battleground_alterac_valley()
+{
+    RegisterBattlegroundMapScript(battleground_alterac_valley, 30);
 }

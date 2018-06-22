@@ -18,6 +18,8 @@
 
 #include "Map.h"
 #include "Battleground.h"
+#include "BattlegroundMgr.h"
+#include "BattlegroundScript.h"
 #include "CellImpl.h"
 #include "Conversation.h"
 #include "DatabaseEnv.h"
@@ -3350,6 +3352,11 @@ void InstanceMap::InitVisibilityDistance()
     m_VisibilityNotifyPeriod = World::GetVisibilityNotifyPeriodInInstances();
 }
 
+ZoneScript* InstanceMap::GetZoneScript() const
+{
+    return i_data;
+}
+
 /*
     Do map specific checks to see if the player can enter
 */
@@ -3831,7 +3838,7 @@ uint32 InstanceMap::GetMaxResetDelay() const
 /* ******* Battleground Instance Maps ******* */
 
 BattlegroundMap::BattlegroundMap(uint32 id, time_t expiry, uint32 InstanceId, Map* _parent, uint8 spawnMode)
-  : Map(id, expiry, InstanceId, spawnMode, _parent), m_bg(NULL)
+  : Map(id, expiry, InstanceId, spawnMode, _parent), m_bg(NULL), _battlegroundScript(nullptr), _scriptId(0)
 {
     //lets initialize visibility distance for BG/Arenas
     BattlegroundMap::InitVisibilityDistance();
@@ -3845,6 +3852,8 @@ BattlegroundMap::~BattlegroundMap()
         m_bg->SetBgMap(NULL);
         m_bg = NULL;
     }
+
+    delete _battlegroundScript;
 }
 
 void BattlegroundMap::InitVisibilityDistance()
@@ -3852,6 +3861,38 @@ void BattlegroundMap::InitVisibilityDistance()
     //init visibility distance for BG/Arenas
     m_VisibleDistance = World::GetMaxVisibleDistanceInBGArenas();
     m_VisibilityNotifyPeriod = World::GetVisibilityNotifyPeriodInBGArenas();
+}
+
+std::string const& BattlegroundMap::GetScriptName() const
+{
+    return sObjectMgr->GetScriptName(_scriptId);
+}
+
+void BattlegroundMap::InitScriptData()
+{
+    if (_battlegroundScript)
+        return;
+
+    BattlegroundTemplate const* bg = sBattlegroundMgr->GetBattlegroundTemplateByMapId(GetId());
+    ASSERT(bg, "Couldn't find battleground template %u!", GetId());
+    if (bg)
+    {
+        _scriptId = bg->ScriptId;
+        _battlegroundScript = sScriptMgr->CreateBattlegroundData(this);
+        // Make sure every battleground has a default script
+        if (!_battlegroundScript)
+        {
+            if (bg->IsArena())
+                _battlegroundScript = new ArenaScript(this);
+            else
+                _battlegroundScript = new BattlegroundScript(this);
+        }
+    }
+}
+
+ZoneScript* BattlegroundMap::GetZoneScript() const
+{
+    return _battlegroundScript;
 }
 
 Map::EnterState BattlegroundMap::CannotEnter(Player* player)

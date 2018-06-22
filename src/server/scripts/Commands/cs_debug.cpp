@@ -26,6 +26,7 @@ EndScriptData */
 #include "Bag.h"
 #include "BattlefieldMgr.h"
 #include "BattlegroundMgr.h"
+#include "BattlegroundScript.h"
 #include "CellImpl.h"
 #include "Chat.h"
 #include "ChatPackets.h"
@@ -1508,8 +1509,8 @@ public:
 
         if (stricmp(args, "linked"))
         {
-            if (Battleground* bg = player->GetBattleground())
-                nearestLoc = bg->GetClosestGraveYard(player);
+            if (BattlegroundScript* script = player->GetBattlegroundScript())
+                nearestLoc = script->GetGraveYardForPlayer(player);
             else
             {
                 if (Battlefield* bf = sBattlefieldMgr->GetBattlefieldToZoneId(player->GetZoneId()))

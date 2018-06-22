@@ -1280,7 +1280,7 @@ class go_ulduar_tower : public GameObjectScript
     public:
         go_ulduar_tower() : GameObjectScript("go_ulduar_tower") { }
 
-        void OnDestroyed(GameObject* go, Player* /*player*/) override
+        void OnDestroyed(GameObject* go, Player* player) override
         {
             InstanceScript* instance = go->GetInstanceScript();
             if (!instance)
@@ -1289,16 +1289,16 @@ class go_ulduar_tower : public GameObjectScript
             switch (go->GetEntry())
             {
                 case GO_TOWER_OF_STORMS:
-                    instance->ProcessEvent(go, EVENT_TOWER_OF_STORM_DESTROYED);
+                    instance->ProcessEvent(go, EVENT_TOWER_OF_STORM_DESTROYED, player);
                     break;
                 case GO_TOWER_OF_FLAMES:
-                    instance->ProcessEvent(go, EVENT_TOWER_OF_FLAMES_DESTROYED);
+                    instance->ProcessEvent(go, EVENT_TOWER_OF_FLAMES_DESTROYED, player);
                     break;
                 case GO_TOWER_OF_FROST:
-                    instance->ProcessEvent(go, EVENT_TOWER_OF_FROST_DESTROYED);
+                    instance->ProcessEvent(go, EVENT_TOWER_OF_FROST_DESTROYED, player);
                     break;
                 case GO_TOWER_OF_LIFE:
-                    instance->ProcessEvent(go, EVENT_TOWER_OF_LIFE_DESTROYED);
+                    instance->ProcessEvent(go, EVENT_TOWER_OF_LIFE_DESTROYED, player);
                     break;
             }
 

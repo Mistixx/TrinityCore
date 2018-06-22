@@ -15,12 +15,15 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "BattlegroundTP.h"
 
-BattlegroundTP::BattlegroundTP()
-{
-}
+#include "BattlegroundScript.h"
 
-BattlegroundTP::~BattlegroundTP()
+struct battleground_isle_of_conquest : public BattlegroundScript
 {
+    explicit battleground_isle_of_conquest(BattlegroundMap* map) : BattlegroundScript(map) { }
+};
+
+void AddSC_battleground_isle_of_conquest()
+{
+    RegisterBattlegroundMapScript(battleground_isle_of_conquest, 628);
 }

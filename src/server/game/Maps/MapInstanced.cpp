@@ -259,7 +259,7 @@ BattlegroundMap* MapInstanced::CreateBattleground(uint32 InstanceId, Battlegroun
     ASSERT(map->IsBattlegroundOrArena());
     map->SetBG(bg);
     bg->SetBgMap(map);
-
+    map->InitScriptData();
     m_InstancedMaps[InstanceId] = map;
     return map;
 }

@@ -17,6 +17,7 @@
  */
 
 #include "WorldSession.h"
+#include "BattlegroundScript.h"
 #include "Common.h"
 #include "Corpse.h"
 #include "DatabaseEnv.h"
@@ -431,4 +432,10 @@ void WorldSession::HandleQueryRealmName(WorldPackets::Query::QueryRealmName& que
     }
     else
         realmQueryResponse.LookupState = RESPONSE_FAILURE;
+}
+
+void WorldSession::HandleQueryCountdownTimer(WorldPackets::Query::QueryCountdownTimer& queryCountdownTimer)
+{
+    if (BattlegroundScript* script = _player->GetBattlegroundScript())
+        script->OnQueryCountdownTimer(queryCountdownTimer.TimerType);
 }

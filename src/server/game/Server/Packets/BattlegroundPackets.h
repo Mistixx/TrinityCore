@@ -405,6 +405,28 @@ namespace WorldPackets
 
             void Read() override { }
         };
+
+        class BattlegroundInit final : public ServerPacket
+        {
+        public:
+            BattlegroundInit() : ServerPacket(SMSG_BATTLEGROUND_INIT, 4 + 2) { }
+
+            WorldPacket const* Write() override;
+
+            uint32 Unk = 0;
+            uint16 MaxPoints = 1500;
+        };
+
+        class BattlegroundPoints final : public ServerPacket
+        {
+        public:
+            BattlegroundPoints() : ServerPacket(SMSG_BATTLEGROUND_POINTS, 3) { }
+
+            WorldPacket const* Write() override;
+
+            uint16 Points = 0;
+            uint8 Team = 0;
+        };
     }
 }
 

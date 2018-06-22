@@ -285,3 +285,19 @@ WorldPacket const* WorldPackets::Battleground::DestroyArenaUnit::Write()
     _worldPacket << Guid;
     return &_worldPacket;
 }
+
+WorldPacket const* WorldPackets::Battleground::BattlegroundInit::Write()
+{
+    _worldPacket << uint32(Unk);
+    _worldPacket << uint16(MaxPoints);
+    return &_worldPacket;
+}
+
+WorldPacket const* WorldPackets::Battleground::BattlegroundPoints::Write()
+{
+    _worldPacket << uint16(Points);
+    _worldPacket.WriteBit(Team);
+    _worldPacket.FlushBits();
+
+    return &_worldPacket;
+}

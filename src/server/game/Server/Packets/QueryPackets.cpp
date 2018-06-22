@@ -91,6 +91,11 @@ void WorldPackets::Query::QueryPlayerName::Read()
     _worldPacket >> Player;
 }
 
+void WorldPackets::Query::QueryCountdownTimer::Read()
+{
+    _worldPacket >> TimerType;
+}
+
 ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Query::PlayerGuidLookupHint const& lookupHint)
 {
     data.WriteBit(lookupHint.VirtualRealmAddress.is_initialized());

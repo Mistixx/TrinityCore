@@ -1654,7 +1654,7 @@ bool CriteriaHandler::AdditionalRequirementsSatisfied(ModifierTreeNode const* tr
         case CRITERIA_ADDITIONAL_CONDITION_ARENA_TYPE: // 24
         {
             Battleground* bg = referencePlayer->GetBattleground();
-            if (!bg || !bg->isArena() || bg->GetArenaType() != reqValue)
+            if (!bg || !bg->IsArena() || bg->GetArenaType() != reqValue)
                 return false;
             break;
         }

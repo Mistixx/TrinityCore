@@ -114,6 +114,7 @@ class TC_GAME_API GameObject : public WorldObject, public GridObject<GameObject>
         void SetWorldRotation(float qx, float qy, float qz, float qw);
         void SetParentRotation(QuaternionData const& rotation);      // transforms(rotates) transport's path
         int64 GetPackedWorldRotation() const { return m_packedRotation; }
+        QuaternionData const& GetWorldRotation() const { return m_worldRotation; }
 
         // overwrite WorldObject function for proper name localization
         std::string const& GetNameForLocaleIdx(LocaleConstant locale_idx) const override;
@@ -252,6 +253,7 @@ class TC_GAME_API GameObject : public WorldObject, public GridObject<GameObject>
         void CastSpell(Unit* target, uint32 spell, TriggerCastFlags triggered);
         void SendCustomAnim(uint32 anim);
         bool IsInRange(float x, float y, float z, float radius) const;
+        void SetSpellVisual(int32 spellVisualId, ObjectGuid activatorGuid = ObjectGuid::Empty);
 
         void ModifyHealth(int32 change, Unit* attackerOrHealer = NULL, uint32 spellId = 0);
         // sets GameObject type 33 destruction flags and optionally default health for that state
@@ -302,6 +304,15 @@ class TC_GAME_API GameObject : public WorldObject, public GridObject<GameObject>
 
         void AIM_Destroy();
         bool AIM_Initialize();
+
+        void DespawnAndRemoveFromWorld(bool const force = false)
+        {
+            SendGameObjectDespawn();
+            if (force || (m_goTemplateAddon->flags & GO_FLAG_NODESPAWN) == 0)
+                RemoveFromWorld();
+        }
+
+        void ReportUse(Unit* user);
 
     protected:
         GameObjectModel* CreateModel();

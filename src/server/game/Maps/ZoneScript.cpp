@@ -17,8 +17,15 @@
 
 #include "ZoneScript.h"
 #include "Creature.h"
+#include "WorldStatePackets.h"
 
 uint32 ZoneScript::GetCreatureEntry(ObjectGuid::LowType /*guidLow*/, CreatureData const* data)
 {
     return data->id;
+}
+
+void ZoneScript::FillInitialWorldStates(WorldPackets::WorldState::InitWorldStates& packet)
+{
+    for (auto pair : Worldstates)
+        packet.Worldstates.emplace_back(pair.first, pair.second);
 }

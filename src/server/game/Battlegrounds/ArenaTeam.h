@@ -22,6 +22,7 @@
 #include "Define.h"
 #include "DatabaseEnvFwd.h"
 #include "ObjectGuid.h"
+
 #include <list>
 #include <string>
 #include <map>
@@ -30,6 +31,8 @@ class WorldSession;
 class WorldPacket;
 class Player;
 class Group;
+
+enum ArenaType;
 
 enum ArenaTeamCommandTypes
 {
@@ -125,7 +128,7 @@ class TC_GAME_API ArenaTeam
         uint32 GetType() const { return Type; }
         uint8  GetSlot() const { return GetSlotByType(GetType()); }
         static uint8 GetSlotByType(uint32 type);
-        static uint8 GetTypeBySlot(uint8 slot);
+        static ArenaType GetTypeBySlot(uint8 slot);
         ObjectGuid GetCaptain() const { return CaptainGuid; }
         std::string const& GetName() const { return TeamName; }
         const ArenaTeamStats& GetStats() const { return Stats; }

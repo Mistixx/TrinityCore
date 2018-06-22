@@ -29,6 +29,12 @@ WorldPacket const* WorldPackets::WorldState::InitWorldStates::Write()
     _worldPacket << uint32(SubareaID);
 
     _worldPacket << uint32(Worldstates.size());
+    // Blizzard sends them in ascending order
+    std::sort(Worldstates.begin(), Worldstates.end(), [](WorldStateInfo ws1, WorldStateInfo ws2)
+    {
+        return ws1.VariableID < ws2.VariableID;
+    });
+
     for (WorldStateInfo const& wsi : Worldstates)
     {
         _worldPacket << uint32(wsi.VariableID);

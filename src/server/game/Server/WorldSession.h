@@ -566,6 +566,7 @@ namespace WorldPackets
     namespace Query
     {
         class QueryCreature;
+        class QueryCountdownTimer;
         class QueryPlayerName;
         class QueryPageText;
         class QueryNPCText;
@@ -1654,6 +1655,7 @@ class TC_GAME_API WorldSession
         void HandleObjectUpdateRescuedOpcode(WorldPackets::Misc::ObjectUpdateRescued& objectUpdateRescued);
         void HandleRequestCategoryCooldowns(WorldPackets::Spells::RequestCategoryCooldowns& requestCategoryCooldowns);
         void HandleCloseInteraction(WorldPackets::Misc::CloseInteraction& closeInteraction);
+        void HandleQueryCountdownTimer(WorldPackets::Query::QueryCountdownTimer& qeryCountdownTimer);
 
         // Toys
         void HandleAddToy(WorldPackets::Toy::AddToy& packet);

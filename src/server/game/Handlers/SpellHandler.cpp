@@ -244,6 +244,8 @@ void WorldSession::HandleGameobjectReportUse(WorldPackets::GameObject::GameObjRe
             return;
 
         _player->UpdateCriteria(CRITERIA_TYPE_USE_GAMEOBJECT, go->GetEntry());
+
+        go->ReportUse(_player);
     }
 }
 

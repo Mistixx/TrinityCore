@@ -31,6 +31,7 @@ class Aura;
 class AuraScript;
 class Battleground;
 class BattlegroundMap;
+class BattlegroundScript;
 class Channel;
 class ChatCommand;
 class Conversation;
@@ -364,6 +365,11 @@ class TC_GAME_API BattlegroundMapScript : public ScriptObject, public MapScript<
     protected:
 
         BattlegroundMapScript(const char* name, uint32 mapId);
+
+    public:
+
+        // Gets an BattlegroundScript object for this battleground.
+        virtual BattlegroundScript* GetBattlegroundScript(BattlegroundMap* /*map*/) const { return nullptr; }
 };
 
 class TC_GAME_API ItemScript : public ScriptObject
@@ -507,18 +513,6 @@ class TC_GAME_API AreaTriggerScript : public ScriptObject
 
         // Called when the area trigger is activated by a player.
         virtual bool OnTrigger(Player* /*player*/, AreaTriggerEntry const* /*trigger*/, bool /*entered*/) { return false; }
-};
-
-class TC_GAME_API BattlegroundScript : public ScriptObject
-{
-    protected:
-
-        BattlegroundScript(const char* name);
-
-    public:
-
-        // Should return a fully valid Battleground object for the type ID.
-        virtual Battleground* GetBattleground() const = 0;
 };
 
 class TC_GAME_API OutdoorPvPScript : public ScriptObject
@@ -1062,7 +1056,7 @@ class TC_GAME_API ScriptMgr
 
     public: /* BattlegroundScript */
 
-        Battleground* CreateBattleground(BattlegroundTypeId typeId);
+        BattlegroundScript* CreateBattlegroundData(BattlegroundMap* map);
 
     public: /* OutdoorPvPScript */
 
@@ -1279,6 +1273,16 @@ class GenericAreaTriggerEntityScript : public AreaTriggerEntityScript
         AreaTriggerAI* GetAI(AreaTrigger* at) const override { return new AI(at); }
 };
 #define RegisterAreaTriggerAI(ai_name) new GenericAreaTriggerEntityScript<ai_name>(#ai_name)
+
+template<class AI>
+class GenericBattlegroundMapScript : public BattlegroundMapScript
+{
+    public:
+        GenericBattlegroundMapScript(char const* name, uint32 mapId) : BattlegroundMapScript(name, mapId) { }
+
+        BattlegroundScript* GetBattlegroundScript(BattlegroundMap* map) const override { return new AI(map); }
+};
+#define RegisterBattlegroundMapScript(ai_name, mapId) new GenericBattlegroundMapScript<ai_name>(#ai_name, mapId)
 
 #define sScriptMgr ScriptMgr::instance()
 

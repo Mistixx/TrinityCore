@@ -1871,9 +1871,13 @@ void ObjectMgr::LoadCreatures()
     //   11               12         13       14            15         16          17          18                19                   20                    21
         "currentwaypoint, curhealth, curmana, MovementType, spawnMask, eventEntry, pool_entry, creature.npcflag, creature.unit_flags, creature.unit_flags2, creature.unit_flags3, "
     //   22                     23                      24                25                   26                       27
-        "creature.dynamicflags, creature.phaseUseFlags, creature.phaseid, creature.phasegroup, creature.terrainSwapMap, creature.ScriptName "
+        "creature.dynamicflags, creature.phaseUseFlags, creature.phaseid, creature.phasegroup, creature.terrainSwapMap, creature.ScriptName, "
+    //   28                     29
+        "bgc.battlegroundEntry, bgcp.battlegroundEntry "
         "FROM creature "
-        "LEFT OUTER JOIN game_event_creature ON creature.guid = game_event_creature.guid "
+        "LEFT OUTER JOIN game_event_creature ON creature.guid=game_event_creature.guid "
+        "LEFT OUTER JOIN battleground_creature bgc ON creature.guid=bgc.spawnId "
+        "LEFT OUTER JOIN battleground_capture_point_creature bgcp ON creature.guid=bgcp.spawnId "
         "LEFT OUTER JOIN pool_creature ON creature.guid = pool_creature.guid");
 
     if (!result)
@@ -1936,6 +1940,9 @@ void ObjectMgr::LoadCreatures()
         data.ScriptId       = GetScriptId(fields[27].GetString());
         if (!data.ScriptId)
             data.ScriptId = cInfo->ScriptID;
+
+        uint32 const battlegroundEntry = fields[28].GetUInt32();
+        uint32 const capturePointBattlegroundEntry = fields[29].GetUInt32();
 
         MapEntry const* mapEntry = sMapStore.LookupEntry(data.mapid);
         if (!mapEntry)
@@ -2089,8 +2096,8 @@ void ObjectMgr::LoadCreatures()
             WorldDatabase.Execute(stmt);
         }
 
-        // Add to grid if not managed by the game event or pool system
-        if (gameEvent == 0 && PoolId == 0)
+        // Add to grid if not managed by the game event or pool system or battleground
+        if (gameEvent == 0 && PoolId == 0 && battlegroundEntry == 0 && capturePointBattlegroundEntry == 0)
             AddCreatureToGrid(guid, &data);
     }
     while (result->NextRow());
@@ -2232,9 +2239,11 @@ void ObjectMgr::LoadGameobjects()
     QueryResult result = WorldDatabase.Query("SELECT gameobject.guid, id, map, position_x, position_y, position_z, orientation, "
     //   7          8          9          10         11             12            13     14         15          16
         "rotation0, rotation1, rotation2, rotation3, spawntimesecs, animprogress, state, spawnMask, eventEntry, pool_entry, "
-    //   17             18       19          20              21
-        "phaseUseFlags, phaseid, phasegroup, terrainSwapMap, ScriptName "
-        "FROM gameobject LEFT OUTER JOIN game_event_gameobject ON gameobject.guid = game_event_gameobject.guid "
+    //   17             18       19          20              21          22                     23
+        "phaseUseFlags, phaseid, phasegroup, terrainSwapMap, ScriptName, bgg.battlegroundEntry, bgcp.battlegroundEntry "
+        "FROM gameobject LEFT OUTER JOIN game_event_gameobject ON gameobject.guid=game_event_gameobject.guid "
+        "LEFT OUTER JOIN battleground_gameobject bgg ON gameobject.guid=bgg.spawnId "
+        "LEFT OUTER JOIN battleground_capture_point_gameobject bgcp ON gameobject.guid=bgcp.spawnId "
         "LEFT OUTER JOIN pool_gameobject ON gameobject.guid = pool_gameobject.guid");
 
     if (!result)
@@ -2462,7 +2471,10 @@ void ObjectMgr::LoadGameobjects()
             WorldDatabase.Execute(stmt);
         }
 
-        if (gameEvent == 0 && PoolId == 0)                      // if not this is to be managed by GameEvent System or Pool system
+        uint32 const battlegroundEntry = fields[22].GetUInt32();
+        uint32 const capturePointBattlegroundEntry = fields[23].GetUInt32();
+
+        if (gameEvent == 0 && PoolId == 0 && battlegroundEntry == 0 && capturePointBattlegroundEntry == 0) // if not this is to be managed by GameEvent System or Pool system
             AddGameobjectToGrid(guid, &data);
     }
     while (result->NextRow());

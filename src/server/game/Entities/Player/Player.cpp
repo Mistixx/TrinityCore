@@ -31,6 +31,7 @@
 #include "BattlegroundMgr.h"
 #include "BattlegroundPackets.h"
 #include "BattlegroundScore.h"
+#include "BattlegroundScript.h"
 #include "BattlePetMgr.h"
 #include "CellImpl.h"
 #include "Channel.h"
@@ -164,7 +165,7 @@ Player::Player(WorldSession* session) : Unit(true), m_sceneMgr(this)
     m_zoneUpdateTimer = 0;
 
     m_areaUpdateId = 0;
-    m_team = 0;
+    m_team = TEAM_OTHER;
 
     m_nextSave = sWorld->getIntConfig(CONFIG_INTERVAL_SAVE);
 
@@ -1660,6 +1661,11 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
 bool Player::TeleportTo(WorldLocation const &loc, uint32 options /*= 0*/)
 {
     return TeleportTo(loc.GetMapId(), loc.GetPositionX(), loc.GetPositionY(), loc.GetPositionZ(), loc.GetOrientation(), options);
+}
+
+bool Player::TeleportTo(WorldSafeLocsEntry const* loc, uint32 options)
+{
+    return TeleportTo(loc->MapID, loc->Loc.X, loc->Loc.Y, loc->Loc.Z, (loc->Facing * M_PI) / 180, options);
 }
 
 bool Player::TeleportToBGEntryPoint()
@@ -4246,12 +4252,6 @@ void Player::ResurrectPlayer(float restore_percent, bool applySickness)
     UpdateZone(newzone, newarea);
     sOutdoorPvPMgr->HandlePlayerResurrects(this, newzone);
 
-    if (InBattleground())
-    {
-        if (Battleground* bg = GetBattleground())
-            bg->HandlePlayerResurrect(this);
-    }
-
     // update visibility
     UpdateObjectVisibility();
 
@@ -4635,8 +4635,8 @@ void Player::RepopAtGraveyard()
     WorldSafeLocsEntry const* ClosestGrave;
 
     // Special handle for battleground maps
-    if (Battleground* bg = GetBattleground())
-        ClosestGrave = bg->GetClosestGraveYard(this);
+    if (BattlegroundScript* bgScript = GetBattlegroundScript())
+        ClosestGrave = bgScript->GetGraveYardForPlayer(this);
     else
     {
         if (Battlefield* bf = sBattlefieldMgr->GetBattlefieldToZoneId(GetZoneId()))
@@ -6019,7 +6019,7 @@ void Player::CheckAreaExploreAndOutdoor()
     }
 }
 
-uint32 Player::TeamForRace(uint8 race)
+Team Player::TeamForRace(uint8 race)
 {
     if (ChrRacesEntry const* rEntry = sChrRacesStore.LookupEntry(race))
     {
@@ -6297,7 +6297,7 @@ bool Player::RewardHonor(Unit* victim, uint32 groupsize, int32 honor, bool pvpto
     UpdateHonorFields();
 
     // do not reward honor in arenas, but return true to enable onkill spellproc
-    if (InBattleground() && GetBattleground() && GetBattleground()->isArena())
+    if (InBattleground() && GetBattleground() && GetBattleground()->IsArena())
         return true;
 
     // Promote to float for calculations
@@ -7033,13 +7033,13 @@ void Player::UpdateArea(uint32 newArea)
 
 void Player::UpdateZone(uint32 newZone, uint32 newArea)
 {
+    uint32 const oldZoneId = m_zoneUpdateId;
     if (m_zoneUpdateId != newZone)
     {
         sOutdoorPvPMgr->HandlePlayerLeaveZone(this, m_zoneUpdateId);
-        sOutdoorPvPMgr->HandlePlayerEnterZone(this, newZone);
         sBattlefieldMgr->HandlePlayerLeaveZone(this, m_zoneUpdateId);
+        sOutdoorPvPMgr->HandlePlayerEnterZone(this, newZone);
         sBattlefieldMgr->HandlePlayerEnterZone(this, newZone);
-        SendInitWorldStates(newZone, newArea);              // only if really enters to new zone, not just area change, works strange...
         if (Guild* guild = GetGuild())
             guild->UpdateMemberData(this, GUILD_MEMBER_DATA_ZONEID, newZone);
     }
@@ -7114,6 +7114,12 @@ void Player::UpdateZone(uint32 newZone, uint32 newArea)
     UpdateLocalChannels(newZone);
 
     UpdateZoneDependentAuras(newZone);
+
+    if (oldZoneId != newZone)
+    {
+        SetZoneScript();
+        SendInitWorldStates(newZone, newArea); // only if really enters to new zone, not just area change, works strange...
+    }
 }
 
 //If players are too far away from the duel flag... they lose the duel
@@ -8353,12 +8359,11 @@ void Player::SendLoot(ObjectGuid guid, LootType loot_type, bool aeLooting/* = fa
         if (go->getLootState() == GO_READY)
         {
             uint32 lootid = go->GetGOInfo()->GetLootId();
-            if (Battleground* bg = GetBattleground())
-                if (!bg->CanActivateGO(go->GetEntry(), GetTeam()))
-                {
-                    SendLootRelease(guid);
-                    return;
-                }
+            if (InBattleground())
+            {
+                SendLootRelease(guid);
+                return;
+            }
 
             if (lootid)
             {
@@ -8492,7 +8497,7 @@ void Player::SendLoot(ObjectGuid guid, LootType loot_type, bool aeLooting/* = fa
             uint32 pLevel = bones->loot.gold;
             bones->loot.clear();
             if (Battleground* bg = GetBattleground())
-                if (bg->GetTypeID(true) == BATTLEGROUND_AV)
+                if (bg->GetTypeId(true) == BATTLEGROUND_AV)
                     loot->FillLoot(1, LootTemplates_Creature, this, true);
             // It may need a better formula
             // Now it works like this: lvl10: ~6copper, lvl70: ~9silver
@@ -8710,6 +8715,10 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
     InstanceScript* instance = GetInstanceScript();
     Battlefield* bf = sBattlefieldMgr->GetBattlefieldToZoneId(zoneid);
 
+    BattlegroundScript* battlegroundScript = nullptr;
+    if (bg)
+        battlegroundScript = bg->GetBattlegroundScript();
+
     WorldPackets::WorldState::InitWorldStates packet;
     packet.MapID = mapid;
     packet.AreaID = zoneid;
@@ -8763,8 +8772,8 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             packet.Worldstates.emplace_back(2325, 0x0); // 13 sandworm E
             break;
         case 2597:                                          // Alterac Valley
-            if (bg && bg->GetTypeID(true) == BATTLEGROUND_AV)
-                bg->FillInitialWorldStates(packet);
+            if (battlegroundScript)
+                battlegroundScript->FillInitialWorldStates(packet);
             else
             {
                 packet.Worldstates.emplace_back(0x7ae, 0x1);           // 7 snowfall n
@@ -8845,8 +8854,8 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             }
             break;
         case 3277:                                          // Warsong Gulch
-            if (bg && bg->GetTypeID(true) == BATTLEGROUND_WS)
-                bg->FillInitialWorldStates(packet);
+            if (battlegroundScript)
+                battlegroundScript->FillInitialWorldStates(packet);
             else
             {
                 packet.Worldstates.emplace_back(0x62d, 0x0);       // 7 1581 alliance flag captures
@@ -8860,8 +8869,8 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             }
             break;
         case 3358:                                          // Arathi Basin
-            if (bg && bg->GetTypeID(true) == BATTLEGROUND_AB)
-                bg->FillInitialWorldStates(packet);
+            if (battlegroundScript)
+                battlegroundScript->FillInitialWorldStates(packet);
             else
             {
                 packet.Worldstates.emplace_back(0x6e7, 0x0);       // 7 1767 stables alliance
@@ -8899,8 +8908,8 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             }
             break;
         case 3820:                                          // Eye of the Storm
-            if (bg && bg->GetTypeID(true) == BATTLEGROUND_EY)
-                bg->FillInitialWorldStates(packet);
+            if (battlegroundScript)
+                battlegroundScript->FillInitialWorldStates(packet);
             else
             {
                 packet.Worldstates.emplace_back(0xac1, 0x0);       // 7  2753 Horde Bases
@@ -9072,8 +9081,8 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             }
             break;
         case 3698:                                          // Nagrand Arena
-            if (bg && bg->GetTypeID(true) == BATTLEGROUND_NA)
-                bg->FillInitialWorldStates(packet);
+            if (battlegroundScript)
+                battlegroundScript->FillInitialWorldStates(packet);
             else
             {
                 packet.Worldstates.emplace_back(0xa0f, 0x0);           // 7
@@ -9082,8 +9091,8 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             }
             break;
         case 3702:                                          // Blade's Edge Arena
-            if (bg && bg->GetTypeID(true) == BATTLEGROUND_BE)
-                bg->FillInitialWorldStates(packet);
+            if (battlegroundScript)
+                battlegroundScript->FillInitialWorldStates(packet);
             else
             {
                 packet.Worldstates.emplace_back(0x9f0, 0x0);           // 7 gold
@@ -9092,8 +9101,8 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             }
             break;
         case 3968:                                          // Ruins of Lordaeron
-            if (bg && bg->GetTypeID(true) == BATTLEGROUND_RL)
-                bg->FillInitialWorldStates(packet);
+            if (battlegroundScript)
+                battlegroundScript->FillInitialWorldStates(packet);
             else
             {
                 packet.Worldstates.emplace_back(0xbb8, 0x0);           // 7 gold
@@ -9102,8 +9111,8 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             }
             break;
         case 4378:                                          // Dalaran Sewers
-            if (bg && bg->GetTypeID(true) == BATTLEGROUND_DS)
-                bg->FillInitialWorldStates(packet);
+            if (battlegroundScript)
+                battlegroundScript->FillInitialWorldStates(packet);
             else
             {
                 packet.Worldstates.emplace_back(3601, 0x0);           // 7 gold
@@ -9112,8 +9121,8 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             }
             break;
         case 4384:                                          // Strand of the Ancients
-            if (bg && bg->GetTypeID(true) == BATTLEGROUND_SA)
-                bg->FillInitialWorldStates(packet);
+            if (battlegroundScript)
+                battlegroundScript->FillInitialWorldStates(packet);
             else
             {
                 // 1-3 A defend, 4-6 H defend, 7-9 unk defend, 1 - ok, 2 - half destroyed, 3 - destroyed
@@ -9147,8 +9156,8 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             }
             break;
         case 4406:                                          // Ring of Valor
-            if (bg && bg->GetTypeID(true) == BATTLEGROUND_RV)
-                bg->FillInitialWorldStates(packet);
+            if (battlegroundScript)
+                battlegroundScript->FillInitialWorldStates(packet);
             else
             {
                 packet.Worldstates.emplace_back(0xe10, 0x0);           // 7 gold
@@ -9157,8 +9166,8 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             }
             break;
         case 4710:
-            if (bg && bg->GetTypeID(true) == BATTLEGROUND_IC)
-                bg->FillInitialWorldStates(packet);
+            if (battlegroundScript)
+                battlegroundScript->FillInitialWorldStates(packet);
             else
             {
                 packet.Worldstates.emplace_back(4221, 1); // 7 BG_IC_ALLIANCE_RENFORT_SET
@@ -9272,8 +9281,8 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             break;
         // Twin Peaks
         case 5031:
-            if (bg && bg->GetTypeID(true) == BATTLEGROUND_TP)
-                bg->FillInitialWorldStates(packet);
+            if (battlegroundScript)
+                battlegroundScript->FillInitialWorldStates(packet);
             else
             {
                 packet.Worldstates.emplace_back(0x62d, 0x0);       //  7 1581 alliance flag captures
@@ -9288,8 +9297,8 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             break;
         // Battle for Gilneas
         case 5449:
-            if (bg && bg->GetTypeID(true) == BATTLEGROUND_BFG)
-                bg->FillInitialWorldStates(packet);
+            if (battlegroundScript)
+                battlegroundScript->FillInitialWorldStates(packet);
             break;
         // Tol Barad Peninsula
         case 5389:
@@ -11158,7 +11167,7 @@ InventoryResult Player::CanEquipItem(uint8 slot, uint16 &dest, Item* pItem, bool
                         return EQUIP_ERR_NOT_IN_COMBAT;
 
                     if (Battleground* bg = GetBattleground())
-                        if (bg->isArena() && bg->GetStatus() == STATUS_IN_PROGRESS)
+                        if (bg->IsArena() && bg->GetStatus() == STATUS_IN_PROGRESS)
                             return EQUIP_ERR_NOT_DURING_ARENA_MATCH;
                 }
 
@@ -11359,7 +11368,7 @@ InventoryResult Player::CanUnequipItem(uint16 pos, bool swap) const
             return EQUIP_ERR_NOT_IN_COMBAT;
 
         if (Battleground* bg = GetBattleground())
-            if (bg->isArena() && bg->GetStatus() == STATUS_IN_PROGRESS)
+            if (bg->IsArena() && bg->GetStatus() == STATUS_IN_PROGRESS)
                 return EQUIP_ERR_NOT_DURING_ARENA_MATCH;
     }
 
@@ -17483,7 +17492,7 @@ void Player::_LoadBGData(PreparedQueryResult result)
     // SELECT instanceId, team, joinX, joinY, joinZ, joinO, joinMapId, taxiStart, taxiEnd, mountSpell FROM character_battleground_data WHERE guid = ?
 
     m_bgData.bgInstanceID = fields[0].GetUInt32();
-    m_bgData.bgTeam       = fields[1].GetUInt16();
+    m_bgData.bgTeam       = Team(fields[1].GetUInt16());
     m_bgData.joinPos      = WorldLocation(fields[6].GetUInt16(),    // Map
                                           fields[2].GetFloat(),     // X
                                           fields[3].GetFloat(),     // Y
@@ -17795,16 +17804,16 @@ bool Player::LoadFromDB(ObjectGuid guid, SQLQueryHolder *holder)
         {
             map = currentBg->GetBgMap();
 
-            BattlegroundQueueTypeId bgQueueTypeId = sBattlegroundMgr->BGQueueTypeId(currentBg->GetTypeID(), currentBg->GetArenaType());
+            BattlegroundQueueTypeId bgQueueTypeId = sBattlegroundMgr->BGQueueTypeId(currentBg->GetTypeId(), currentBg->GetArenaType());
             AddBattlegroundQueueId(bgQueueTypeId);
 
-            m_bgData.bgTypeID = currentBg->GetTypeID();
+            m_bgData.bgTypeID = currentBg->GetTypeId();
 
             //join player to battleground group
             currentBg->EventPlayerLoggedIn(this);
             currentBg->AddOrSetPlayerToCorrectBgGroup(this, m_bgData.bgTeam);
 
-            SetInviteForBattlegroundQueueType(bgQueueTypeId, currentBg->GetInstanceID());
+            SetInviteForBattlegroundQueueType(bgQueueTypeId, currentBg->GetInstanceId());
         }
         // Bg was not found - go to Entry Point
         else
@@ -23155,13 +23164,13 @@ void Player::SetBattlegroundEntryPoint()
         m_bgData.joinPos = WorldLocation(m_homebindMapId, m_homebindX, m_homebindY, m_homebindZ, 0.0f);
 }
 
-void Player::SetBGTeam(uint32 team)
+void Player::SetBGTeam(Team team)
 {
     m_bgData.bgTeam = team;
     SetByteValue(PLAYER_BYTES_4, PLAYER_BYTES_4_OFFSET_ARENA_FACTION, uint8(team == ALLIANCE ? 1 : 0));
 }
 
-uint32 Player::GetBGTeam() const
+Team Player::GetBGTeam() const
 {
     return m_bgData.bgTeam ? m_bgData.bgTeam : GetTeam();
 }
@@ -23173,7 +23182,7 @@ void Player::LeaveBattleground(bool teleportToEntryPoint)
         bg->RemovePlayerAtLeave(GetGUID(), teleportToEntryPoint, true);
 
         // call after remove to be sure that player resurrected for correct cast
-        if (bg->isBattleground() && !IsGameMaster() && sWorld->getBoolConfig(CONFIG_BATTLEGROUND_CAST_DESERTER))
+        if (bg->IsBattleground() && !IsGameMaster() && sWorld->getBoolConfig(CONFIG_BATTLEGROUND_CAST_DESERTER))
         {
             if (bg->GetStatus() == STATUS_IN_PROGRESS || bg->GetStatus() == STATUS_WAIT_JOIN)
             {
@@ -23196,7 +23205,7 @@ bool Player::CanJoinToBattleground(Battleground const* bg) const
     if (HasAura(26013))
         return false;
 
-    if (bg->isArena() && !GetSession()->HasPermission(rbac::RBAC_PERM_JOIN_ARENAS))
+    if (bg->IsArena() && !GetSession()->HasPermission(rbac::RBAC_PERM_JOIN_ARENAS))
         return false;
 
     if (bg->IsRandom() && !GetSession()->HasPermission(rbac::RBAC_PERM_JOIN_RANDOM_BG))
@@ -24435,7 +24444,7 @@ bool Player::IsInvitedForBattlegroundInstance(uint32 instanceId) const
 bool Player::InArena() const
 {
     Battleground* bg = GetBattleground();
-    if (!bg || !bg->isArena())
+    if (!bg || !bg->IsArena())
         return false;
 
     return true;
@@ -24641,7 +24650,7 @@ void Player::SummonIfPossible(bool agree)
     // drop flag at summon
     // this code can be reached only when GM is summoning player who carries flag, because player should be immune to summoning spells when he carries flag
     if (Battleground* bg = GetBattleground())
-        bg->EventPlayerDroppedFlag(this);
+        bg->GetBgMap()->GetBattlegroundScript()->OnPlayerDroppedFlag(this);
 
     m_summon_expire = 0;
 

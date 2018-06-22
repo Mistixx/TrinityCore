@@ -19,10 +19,10 @@
 #ifndef __BATTLEGROUNDMGR_H
 #define __BATTLEGROUNDMGR_H
 
+#include "BattlegroundQueue.h"
 #include "Common.h"
 #include "DBCEnums.h"
-#include "Battleground.h"
-#include "BattlegroundQueue.h"
+
 #include <unordered_map>
 
 class Battleground;
@@ -47,18 +47,26 @@ struct BattlegroundData
 
 struct BattlegroundTemplate
 {
-    BattlegroundTypeId Id;
-    uint16 MinPlayersPerTeam;
-    uint16 MaxPlayersPerTeam;
-    uint8 MinLevel;
-    uint8 MaxLevel;
-    Position StartLocation[BG_TEAMS_COUNT];
-    float MaxStartDistSq;
-    uint8 Weight;
-    uint32 ScriptId;
-    BattlemasterListEntry const* BattlemasterEntry;
+    BattlegroundTypeId Id = BATTLEGROUND_TYPE_NONE;
+    WorldSafeLocsEntry const* StartLocation[BG_TEAMS_COUNT] = { };
+    WorldSafeLocsEntry const* ExploitLocation[BG_TEAMS_COUNT] = { };
+    float MaxStartDistSq = 0.0f;
+    uint8 Weight = 1;
+    uint32 ScriptId = 0;
+    BattlemasterListEntry const* BattlemasterEntry = nullptr;
+    uint16 MaxPoints = 0;
 
     bool IsArena() const;
+
+    typedef std::vector<ObjectGuid::LowType> SpawnIdVector;
+    std::unordered_map<uint32/*areaTriggerId*/, std::vector<uint32> /*gameobject ids*/> BuffSpawnTriggers;
+    std::vector<ScoreType> Scores;
+    std::unordered_map<uint32, SpawnIdVector[3]> CreatureCapturePointSpawns;
+    std::unordered_map<uint32, SpawnIdVector[3]> GameObjectCapturePointSpawns;
+
+    SpawnIdVector CreaturesToSpawn;
+    SpawnIdVector GameObjectsToSpawn;
+    SpawnIdVector Doors;
 };
 
 namespace WorldPackets
@@ -98,7 +106,7 @@ class TC_GAME_API BattlegroundMgr
         /* Battlegrounds */
         Battleground* GetBattleground(uint32 InstanceID, BattlegroundTypeId bgTypeId);
         Battleground* GetBattlegroundTemplate(BattlegroundTypeId bgTypeId);
-        Battleground* CreateNewBattleground(BattlegroundTypeId bgTypeId, PVPDifficultyEntry const* bracketEntry, uint8 arenaType, bool isRated);
+        Battleground* CreateNewBattleground(BattlegroundTypeId bgTypeId, PVPDifficultyEntry const* bracketEntry, ArenaType arenaType, bool isRated);
 
         void AddBattleground(Battleground* bg);
         void RemoveBattleground(BattlegroundTypeId bgTypeId, uint32 instanceId);
@@ -109,7 +117,7 @@ class TC_GAME_API BattlegroundMgr
         void LoadBattlegroundTemplates();
         void DeleteAllBattlegrounds();
 
-        void SendToBattleground(Player* player, uint32 InstanceID, BattlegroundTypeId bgTypeId);
+        void SendToBattleground(Player* player, uint32 instanceId, BattlegroundTypeId bgTypeId);
 
         /* Battleground queues */
         BattlegroundQueue& GetBattlegroundQueue(BattlegroundQueueTypeId bgQueueTypeId) { return m_BattlegroundQueues[bgQueueTypeId]; }
@@ -126,7 +134,7 @@ class TC_GAME_API BattlegroundMgr
 
         static BattlegroundQueueTypeId BGQueueTypeId(BattlegroundTypeId bgTypeId, uint8 arenaType);
         static BattlegroundTypeId BGTemplateId(BattlegroundQueueTypeId bgQueueTypeId);
-        static uint8 BGArenaType(BattlegroundQueueTypeId bgQueueTypeId);
+        static ArenaType BGArenaType(BattlegroundQueueTypeId bgQueueTypeId);
 
         static HolidayIds BGTypeToWeekendHolidayId(BattlegroundTypeId bgTypeId);
         static BattlegroundTypeId WeekendHolidayIdToBGType(HolidayIds holiday);
@@ -142,6 +150,22 @@ class TC_GAME_API BattlegroundMgr
             if (itr != mBattleMastersMap.end())
                 return itr->second;
             return BATTLEGROUND_TYPE_NONE;
+        }
+
+        BattlegroundTemplate const* GetBattlegroundTemplateByTypeId(BattlegroundTypeId id)
+        {
+            BattlegroundTemplateMap::const_iterator itr = _battlegroundTemplates.find(id);
+            if (itr != _battlegroundTemplates.end())
+                return &itr->second;
+            return nullptr;
+        }
+
+        BattlegroundTemplate const* GetBattlegroundTemplateByMapId(uint32 mapId)
+        {
+            BattlegroundMapTemplateContainer::const_iterator itr = _battlegroundMapTemplates.find(mapId);
+            if (itr != _battlegroundMapTemplates.end())
+                return itr->second;
+            return nullptr;
         }
 
     private:
@@ -161,22 +185,6 @@ class TC_GAME_API BattlegroundMgr
         bool   m_ArenaTesting;
         bool   m_Testing;
         BattleMastersMap mBattleMastersMap;
-
-        BattlegroundTemplate const* GetBattlegroundTemplateByTypeId(BattlegroundTypeId id)
-        {
-            BattlegroundTemplateMap::const_iterator itr = _battlegroundTemplates.find(id);
-            if (itr != _battlegroundTemplates.end())
-                return &itr->second;
-            return nullptr;
-        }
-
-        BattlegroundTemplate const* GetBattlegroundTemplateByMapId(uint32 mapId)
-        {
-            BattlegroundMapTemplateContainer::const_iterator itr = _battlegroundMapTemplates.find(mapId);
-            if (itr != _battlegroundMapTemplates.end())
-                return itr->second;
-            return nullptr;
-        }
 
         typedef std::map<BattlegroundTypeId, BattlegroundTemplate> BattlegroundTemplateMap;
         typedef std::map<uint32 /*mapId*/, BattlegroundTemplate*> BattlegroundMapTemplateContainer;

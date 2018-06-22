@@ -20,6 +20,7 @@
 #include "Battlefield.h"
 #include "BattlefieldMgr.h"
 #include "Battleground.h"
+#include "BattlegroundScript.h"
 #include "CellImpl.h"
 #include "Common.h"
 #include "DB2Stores.h"
@@ -3112,8 +3113,8 @@ void AuraEffect::HandleAuraModEffectImmunity(AuraApplication const* aurApp, uint
     {
         if (player->InBattleground())
         {
-            if (Battleground* bg = player->GetBattleground())
-                bg->EventPlayerDroppedFlag(player);
+            if (BattlegroundScript* script = player->GetBattlegroundScript())
+                script->OnPlayerDroppedFlag(player);
         }
         else
             sOutdoorPvPMgr->HandleDropFlag(player, GetSpellInfo()->Id);

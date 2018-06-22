@@ -677,3 +677,12 @@ void WorldPackets::Misc::CloseInteraction::Read()
 {
     _worldPacket >> SourceGuid;
 }
+
+WorldPacket const* WorldPackets::Misc::StartTimer::Write()
+{
+    _worldPacket << uint32(TimeRemaining);
+    _worldPacket << uint32(TotalTime);
+    _worldPacket << uint32(Type);
+
+    return &_worldPacket;
+}

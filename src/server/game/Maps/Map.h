@@ -571,6 +571,8 @@ class TC_GAME_API Map : public GridRefManager<NGridType>
             _updateObjects.erase(obj);
         }
 
+        virtual ZoneScript* GetZoneScript() const { return nullptr; }
+
     private:
         void LoadMapAndVMap(int gx, int gy);
         void LoadVMap(int gx, int gy);
@@ -793,6 +795,7 @@ class TC_GAME_API InstanceMap : public Map
         uint32 GetMaxResetDelay() const;
 
         virtual void InitVisibilityDistance() override;
+        ZoneScript* GetZoneScript() const override;
     private:
         bool m_resetAfterUnload;
         bool m_unloadWhenEmpty;
@@ -801,6 +804,7 @@ class TC_GAME_API InstanceMap : public Map
         InstanceScenario* i_scenario;
 };
 
+class BattlegroundScript;
 class TC_GAME_API BattlegroundMap : public Map
 {
     public:
@@ -817,8 +821,19 @@ class TC_GAME_API BattlegroundMap : public Map
         virtual void InitVisibilityDistance() override;
         Battleground* GetBG() { return m_bg; }
         void SetBG(Battleground* bg) { m_bg = bg; }
+
+        uint32 GetScriptId() const { return _scriptId; }
+        std::string const& GetScriptName() const;
+        BattlegroundScript* GetBattlegroundScript() { return _battlegroundScript; }
+        BattlegroundScript const* GetBattlegroundScript() const { return _battlegroundScript; }
+
+        void InitScriptData();
+        ZoneScript* GetZoneScript() const override;
+
     private:
         Battleground* m_bg;
+        BattlegroundScript* _battlegroundScript;
+        uint32 _scriptId;
 };
 
 template<class T, class CONTAINER>

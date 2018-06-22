@@ -16,8 +16,8 @@
  */
 
 #include "ScriptMgr.h"
-#include "BattlegroundSA.h"
-#include "BattlegroundIC.h"
+#include "Battleground.h"
+#include "BattlegroundScript.h"
 #include "Creature.h"
 #include "Player.h"
 
@@ -28,22 +28,8 @@ class achievement_resilient_victory : public AchievementCriteriaScript
 
         bool OnCheck(Player* source, Unit* target) override
         {
-            if (Battleground* bg = source->GetBattleground())
-                return bg->CheckAchievementCriteriaMeet(BG_CRITERIA_CHECK_RESILIENT_VICTORY, source, target);
-
-            return false;
-        }
-};
-
-class achievement_bg_control_all_nodes : public AchievementCriteriaScript
-{
-    public:
-        achievement_bg_control_all_nodes() : AchievementCriteriaScript("achievement_bg_control_all_nodes") { }
-
-        bool OnCheck(Player* source, Unit* /*target*/) override
-        {
-            if (Battleground* bg = source->GetBattleground())
-                return bg->IsAllNodesControlledByTeam(source->GetTeam());
+            if (BattlegroundScript* script = source->GetBattlegroundScript())
+                return script->CheckAchievementCriteriaMeet(BG_CRITERIA_CHECK_RESILIENT_VICTORY, source, target);
 
             return false;
         }
@@ -56,8 +42,8 @@ class achievement_save_the_day : public AchievementCriteriaScript
 
         bool OnCheck(Player* source, Unit* target) override
         {
-            if (Battleground* bg = source->GetBattleground())
-                return bg->CheckAchievementCriteriaMeet(BG_CRITERIA_CHECK_SAVE_THE_DAY, source, target);
+            if (BattlegroundScript* script = source->GetBattlegroundScript())
+                return script->CheckAchievementCriteriaMeet(BG_CRITERIA_CHECK_SAVE_THE_DAY, source, target);
 
             return false;
         }
@@ -65,6 +51,12 @@ class achievement_save_the_day : public AchievementCriteriaScript
 
 class achievement_bg_ic_resource_glut : public AchievementCriteriaScript
 {
+    enum Spells
+    {
+        SPELL_OIL_REFINERY  = 68719,
+        SPELL_QUARRY        = 68720
+    };
+
     public:
         achievement_bg_ic_resource_glut() : AchievementCriteriaScript("achievement_bg_ic_resource_glut") { }
 
@@ -79,6 +71,12 @@ class achievement_bg_ic_resource_glut : public AchievementCriteriaScript
 
 class achievement_bg_ic_glaive_grave : public AchievementCriteriaScript
 {
+    enum Creatures
+    {
+        NPC_GLAIVE_THROWER_A = 34802,
+        NPC_GLAIVE_THROWER_H = 35273
+    };
+
     public:
         achievement_bg_ic_glaive_grave() : AchievementCriteriaScript("achievement_bg_ic_glaive_grave") { }
 
@@ -96,6 +94,11 @@ class achievement_bg_ic_glaive_grave : public AchievementCriteriaScript
 
 class achievement_bg_ic_mowed_down : public AchievementCriteriaScript
 {
+    enum Creatures
+    {
+        NPC_KEEP_CANNON = 34944
+    };
+
     public:
         achievement_bg_ic_mowed_down() : AchievementCriteriaScript("achievement_bg_ic_mowed_down") { }
 
@@ -113,6 +116,11 @@ class achievement_bg_ic_mowed_down : public AchievementCriteriaScript
 
 class achievement_bg_sa_artillery : public AchievementCriteriaScript
 {
+    enum Creatures
+    {
+        NPC_ANTI_PERSONNAL_CANNON = 27894
+    };
+
     public:
         achievement_bg_sa_artillery() : AchievementCriteriaScript("achievement_bg_sa_artillery") { }
 
@@ -174,8 +182,8 @@ class achievement_everything_counts : public AchievementCriteriaScript
 
         bool OnCheck(Player* source, Unit* target) override
         {
-            if (Battleground* bg = source->GetBattleground())
-                return bg->CheckAchievementCriteriaMeet(BG_CRITERIA_CHECK_EVERYTHING_COUNTS, source, target);
+            if (BattlegroundScript* script = source->GetBattlegroundScript())
+                return script->CheckAchievementCriteriaMeet(BG_CRITERIA_CHECK_EVERYTHING_COUNTS, source, target);
 
             return false;
         }
@@ -188,8 +196,8 @@ class achievement_bg_av_perfection : public AchievementCriteriaScript
 
         bool OnCheck(Player* source, Unit* target) override
         {
-            if (Battleground* bg = source->GetBattleground())
-                return bg->CheckAchievementCriteriaMeet(BG_CRITERIA_CHECK_AV_PERFECTION, source, target);
+            if (BattlegroundScript* script = source->GetBattlegroundScript())
+                return script->CheckAchievementCriteriaMeet(BG_CRITERIA_CHECK_AV_PERFECTION, source, target);
 
             return false;
         }
@@ -202,8 +210,8 @@ class achievement_bg_sa_defense_of_ancients : public AchievementCriteriaScript
 
         bool OnCheck(Player* source, Unit* target) override
         {
-            if (Battleground* bg = source->GetBattleground())
-                return bg->CheckAchievementCriteriaMeet(BG_CRITERIA_CHECK_DEFENSE_OF_THE_ANCIENTS, source, target);
+            if (BattlegroundScript* script = source->GetBattlegroundScript())
+                return script->CheckAchievementCriteriaMeet(BG_CRITERIA_CHECK_DEFENSE_OF_THE_ANCIENTS, source, target);
 
             return false;
         }
@@ -247,8 +255,8 @@ class achievement_not_even_a_scratch : public AchievementCriteriaScript
 
         bool OnCheck(Player* source, Unit* target) override
         {
-            if (Battleground* bg = source->GetBattleground())
-                return bg->CheckAchievementCriteriaMeet(BG_CRITERIA_CHECK_NOT_EVEN_A_SCRATCH, source, target);
+            if (BattlegroundScript* script = source->GetBattlegroundScript())
+                return script->CheckAchievementCriteriaMeet(BG_CRITERIA_CHECK_NOT_EVEN_A_SCRATCH, source, target);
 
             return false;
         }
@@ -292,7 +300,6 @@ class achievement_killed_exp_or_honor_target : public AchievementCriteriaScript
 void AddSC_achievement_scripts()
 {
     new achievement_resilient_victory();
-    new achievement_bg_control_all_nodes();
     new achievement_save_the_day();
     new achievement_bg_ic_resource_glut();
     new achievement_bg_ic_glaive_grave();

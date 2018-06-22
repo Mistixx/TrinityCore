@@ -19,6 +19,7 @@
 #include "GameObject.h"
 #include "ArtifactPackets.h"
 #include "Battleground.h"
+#include "BattlegroundScript.h"
 #include "CellImpl.h"
 #include "CreatureAISelector.h"
 #include "DatabaseEnv.h"
@@ -717,6 +718,9 @@ void GameObject::Update(uint32 diff)
                     }
                     else if (Unit* target = ObjectAccessor::GetUnit(*this, m_lootStateUnitGUID))
                     {
+                        if (target->GetMap()->IsBattlegroundOrArena())
+                            break;
+
                         // Some traps do not have a spell but should be triggered
                         if (goInfo->trap.spell)
                             CastSpell(target, goInfo->trap.spell);
@@ -730,10 +734,10 @@ void GameObject::Update(uint32 diff)
                             SetLootState(GO_READY);
 
                         // Battleground gameobjects have data2 == 0 && data5 == 3
-                        if (!goInfo->trap.radius && goInfo->trap.cooldown == 3)
-                            if (Player* player = target->ToPlayer())
-                                if (Battleground* bg = player->GetBattleground())
-                                    bg->HandleTriggerBuff(GetGUID());
+                        //if (!goInfo->trap.radius && goInfo->trap.cooldown == 3)
+                        //    if (Player* player = target->ToPlayer())
+                        //        if (Battleground* bg = player->GetBattleground())
+                        //            bg->HandleTriggerBuff(GetGUID());
                     }
                     break;
                 }
@@ -785,10 +789,11 @@ void GameObject::Update(uint32 diff)
 
             SetLootState(GO_READY);
 
+            SendGameObjectDespawn();
+
             //burning flags in some battlegrounds, if you find better condition, just add it
             if (GetGOInfo()->IsDespawnAtAction() || GetGoAnimProgress() > 0)
             {
-                SendGameObjectDespawn();
                 //reset flags
                 if (GameObjectTemplateAddon const* addon = GetTemplateAddon())
                     SetUInt32Value(GAMEOBJECT_FLAGS, addon->flags);
@@ -1212,13 +1217,7 @@ bool GameObject::ActivateToQuest(Player* target) const
         case GAMEOBJECT_TYPE_CHEST:
         {
             // scan GO chest with loot including quest items
-            if (LootTemplates_Gameobject.HaveQuestLootForPlayer(GetGOInfo()->GetLootId(), target))
-            {
-                if (Battleground const* bg = target->GetBattleground())
-                    return bg->CanActivateGO(GetEntry(), target->GetTeam());
-                return true;
-            }
-            break;
+            return LootTemplates_Gameobject.HaveQuestLootForPlayer(GetGOInfo()->GetLootId(), target);
         }
         case GAMEOBJECT_TYPE_GENERIC:
         {
@@ -1786,7 +1785,7 @@ void GameObject::Use(Unit* user)
 
             break;
         }
-
+        case GAMEOBJECT_TYPE_NEW_FLAG:
         case GAMEOBJECT_TYPE_FLAGSTAND:                     // 24
         {
             if (user->GetTypeId() != TYPEID_PLAYER)
@@ -1796,9 +1795,8 @@ void GameObject::Use(Unit* user)
 
             if (player->CanUseBattlegroundObject(this))
             {
-                // in battleground check
-                Battleground* bg = player->GetBattleground();
-                if (!bg)
+                BattlegroundScript* script = GetBattlegroundScript();
+                if (!script)
                     return;
 
                 if (player->GetVehicle())
@@ -1806,14 +1804,10 @@ void GameObject::Use(Unit* user)
 
                 player->RemoveAurasByType(SPELL_AURA_MOD_STEALTH);
                 player->RemoveAurasByType(SPELL_AURA_MOD_INVISIBILITY);
-                // BG flag click
-                // AB:
-                // 15001
-                // 15002
-                // 15003
-                // 15004
-                // 15005
-                bg->EventPlayerClickedOnFlag(player, this);
+                if (GetGoType() == GAMEOBJECT_TYPE_NEW_FLAG)
+                    CastSpell(player, GetGOInfo()->newflag.pickupSpell);
+
+                script->OnGameObjectClicked(player, this);
                 return;                                     //we don;t need to delete flag ... it is despawned!
             }
             break;
@@ -1830,7 +1824,7 @@ void GameObject::Use(Unit* user)
             player->UpdateCriteria(CRITERIA_TYPE_FISH_IN_GAMEOBJECT, GetGOInfo()->entry);
             return;
         }
-
+        case GAMEOBJECT_TYPE_NEW_FLAG_DROP:
         case GAMEOBJECT_TYPE_FLAGDROP:                      // 26
         {
             if (user->GetTypeId() != TYPEID_PLAYER)
@@ -1841,8 +1835,8 @@ void GameObject::Use(Unit* user)
             if (player->CanUseBattlegroundObject(this))
             {
                 // in battleground check
-                Battleground* bg = player->GetBattleground();
-                if (!bg)
+                BattlegroundScript* script = player->GetBattlegroundScript();
+                if (!script)
                     return;
 
                 if (player->GetVehicle())
@@ -1856,22 +1850,8 @@ void GameObject::Use(Unit* user)
                 // 179786 - Warsong Flag
                 // EotS:
                 // 184142 - Netherstorm Flag
-                GameObjectTemplate const* info = GetGOInfo();
-                if (info)
-                {
-                    switch (info->entry)
-                    {
-                        case 179785:                        // Silverwing Flag
-                        case 179786:                        // Warsong Flag
-                            if (bg->GetTypeID(true) == BATTLEGROUND_WS)
-                                bg->EventPlayerClickedOnFlag(player, this);
-                            break;
-                        case 184142:                        // Netherstorm Flag
-                            if (bg->GetTypeID(true) == BATTLEGROUND_EY)
-                                bg->EventPlayerClickedOnFlag(player, this);
-                            break;
-                    }
-                }
+                script->OnGameObjectClicked(player, this);
+
                 //this cause to call return, all flags must be deleted here!!
                 spellId = 0;
                 Delete();
@@ -2057,6 +2037,16 @@ bool GameObject::IsInRange(float x, float y, float z, float radius) const
         && dz < info->GeoBoxMax.Z + radius && dz > info->GeoBoxMin.Z - radius;
 }
 
+void GameObject::SetSpellVisual(int32 spellVisualId, ObjectGuid activatorGuid)
+{
+    SetUInt32Value(GAMEOBJECT_SPELL_VISUAL_ID, spellVisualId);
+    WorldPackets::GameObject::GameObjectPlaySpellVisual packet;
+    packet.ActivatorGUID = activatorGuid;
+    packet.ObjectGUID = GetGUID();
+    packet.SpellVisualID = spellVisualId;
+    SendMessageToSet(packet.Write(), true);
+}
+
 void GameObject::EventInform(uint32 eventId, WorldObject* invoker /*= nullptr*/)
 {
     if (!eventId)
@@ -2066,11 +2056,7 @@ void GameObject::EventInform(uint32 eventId, WorldObject* invoker /*= nullptr*/)
         AI()->EventInform(eventId);
 
     if (GetZoneScript())
-        GetZoneScript()->ProcessEvent(this, eventId);
-
-    if (BattlegroundMap* bgMap = GetMap()->ToBattlegroundMap())
-        if (bgMap->GetBG())
-            bgMap->GetBG()->ProcessEvent(this, eventId, invoker);
+        GetZoneScript()->ProcessEvent(this, eventId, invoker);
 }
 
 uint32 GameObject::GetScriptId() const
@@ -2230,10 +2216,6 @@ void GameObject::SetDestructibleState(GameObjectDestructibleState state, Player*
         {
             sScriptMgr->OnGameObjectDestroyed(this, eventInvoker);
             EventInform(m_goInfo->destructibleBuilding.DestroyedEvent, eventInvoker);
-            if (eventInvoker)
-                if (Battleground* bg = eventInvoker->GetBattleground())
-                    bg->DestroyGate(eventInvoker, this);
-
             RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_DAMAGED);
             SetFlag(GAMEOBJECT_FLAGS, GO_FLAG_DESTROYED);
 
@@ -2670,6 +2652,27 @@ public:
 private:
     GameObject* _owner;
 };
+
+void GameObject::ReportUse(Unit* user)
+{
+    switch (GetGoType())
+    {
+        case GAMEOBJECT_TYPE_CAPTURE_POINT:
+            if (LockEntry const* lockEntry = sLockStore.LookupEntry(GetGOInfo()->capturePoint.open))
+                for (uint8 i = 0; i < MAX_LOCK_CASE; i++)
+                    if (lockEntry->Type[i] == 3)
+                        user->CastSpell(this, lockEntry->Index[i], false);
+            break;
+        case GAMEOBJECT_TYPE_NEW_FLAG:
+            if (LockEntry const* lockEntry = sLockStore.LookupEntry(GetGOInfo()->newflag.open))
+                for (uint8 i = 0; i < MAX_LOCK_CASE; i++)
+                    if (lockEntry->Type[i] == 3)
+                        user->CastSpell(this, lockEntry->Index[i], false);
+            break;
+        default:
+            break;
+    }
+}
 
 GameObjectModel* GameObject::CreateModel()
 {

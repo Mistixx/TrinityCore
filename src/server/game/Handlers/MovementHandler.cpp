@@ -18,6 +18,7 @@
 
 #include "WorldSession.h"
 #include "Battleground.h"
+#include "BattlegroundScript.h"
 #include "Common.h"
 #include "Corpse.h"
 #include "Garrison.h"
@@ -124,7 +125,7 @@ void WorldSession::HandleMoveWorldportAck()
             // We're not in BG
             _player->SetBattlegroundId(0, BATTLEGROUND_TYPE_NONE);
             // reset destination bg team
-            _player->SetBGTeam(0);
+            _player->SetBGTeam(TEAM_OTHER);
         }
         // join to bg case
         else if (Battleground* bg = _player->GetBattleground())
@@ -420,7 +421,7 @@ void WorldSession::HandleMovementOpcode(OpcodeClient opcode, MovementInfo& movem
 
         if (movementInfo.pos.GetPositionZ() < plrMover->GetMap()->GetMinHeight(movementInfo.pos.GetPositionX(), movementInfo.pos.GetPositionY()))
         {
-            if (!(plrMover->GetBattleground() && plrMover->GetBattleground()->HandlePlayerUnderMap(_player)))
+            if (!(plrMover->GetBattlegroundScript() && plrMover->GetBattlegroundScript()->HandlePlayerUnderMap(_player)))
             {
                 // NOTE: this is actually called many times while falling
                 // even after the player has been teleported away

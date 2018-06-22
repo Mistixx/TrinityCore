@@ -33,6 +33,7 @@
 #include <unordered_map>
 
 class AreaTrigger;
+class BattlegroundScript;
 class Conversation;
 class Corpse;
 class Creature;
@@ -425,7 +426,8 @@ class TC_GAME_API WorldObject : public Object, public WorldLocation
         uint32 GetAreaId() const;
         void GetZoneAndAreaId(uint32& zoneid, uint32& areaid) const;
 
-        InstanceScript* GetInstanceScript();
+        InstanceScript* GetInstanceScript() const;
+        BattlegroundScript* GetBattlegroundScript() const;
 
         std::string const& GetName() const { return m_name; }
         void SetName(std::string const& newname) { m_name=newname; }

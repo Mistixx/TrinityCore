@@ -19,16 +19,14 @@
 #include "Errors.h"
 #include "SharedDefines.h"
 
-BattlegroundScore::BattlegroundScore(ObjectGuid playerGuid, uint32 team) : PlayerGuid(playerGuid), TeamId(team == ALLIANCE ? BG_TEAM_ALLIANCE : BG_TEAM_HORDE),
+BattlegroundScore::BattlegroundScore(ObjectGuid playerGuid, uint32 team, std::vector<ScoreType> types) : PlayerGuid(playerGuid), TeamId(team == ALLIANCE ? BG_TEAM_ALLIANCE : BG_TEAM_HORDE),
     KillingBlows(0), Deaths(0), HonorableKills(0), BonusHonor(0), DamageDone(0), HealingDone(0)
 {
+    for (ScoreType type : types)
+        ScoreTypes[type] = 0;
 }
 
-BattlegroundScore::~BattlegroundScore()
-{
-}
-
-void BattlegroundScore::UpdateScore(uint32 type, uint32 value)
+void BattlegroundScore::UpdateScore(ScoreType type, uint32 value)
 {
     switch (type)
     {
@@ -51,8 +49,14 @@ void BattlegroundScore::UpdateScore(uint32 type, uint32 value)
             HealingDone += value;
             break;
         default:
-            ASSERT(false, "Not implemented Battleground score type %u!", type);
+        {
+            auto const& itr = ScoreTypes.find(type);
+            if (itr != ScoreTypes.end())
+                itr->second += value;
+            else
+                TC_LOG_ERROR("bg.scores", "Unhandled ScoreType %u!", type);
             break;
+        }
     }
 }
 
@@ -71,4 +75,7 @@ void BattlegroundScore::BuildPvPLogPlayerDataPacket(WorldPackets::Battleground::
 
     playerData.DamageDone = DamageDone;
     playerData.HealingDone = HealingDone;
+
+    for (auto const& extraStats : ScoreTypes)
+        playerData.Stats.push_back(extraStats.second);
 }

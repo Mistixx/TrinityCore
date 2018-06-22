@@ -1635,10 +1635,16 @@ void WorldObject::GetZoneAndAreaId(uint32& zoneid, uint32& areaid) const
     GetMap()->GetZoneAndAreaId(GetPhaseShift(), zoneid, areaid, m_positionX, m_positionY, m_positionZ);
 }
 
-InstanceScript* WorldObject::GetInstanceScript()
+InstanceScript* WorldObject::GetInstanceScript() const
 {
     Map* map = GetMap();
-    return map->IsDungeon() ? ((InstanceMap*)map)->GetInstanceScript() : NULL;
+    return map->IsDungeon() ? static_cast<InstanceMap*>(map)->GetInstanceScript() : nullptr;
+}
+
+BattlegroundScript* WorldObject::GetBattlegroundScript() const
+{
+    Map* map = GetMap();
+    return map->IsBattlegroundOrArena() ? static_cast<BattlegroundMap*>(map)->GetBattlegroundScript() : nullptr;
 }
 
 float WorldObject::GetDistanceZ(const WorldObject* obj) const
@@ -2475,7 +2481,7 @@ void WorldObject::SetZoneScript()
     if (Map* map = FindMap())
     {
         if (map->IsDungeon())
-            m_zoneScript = (ZoneScript*)((InstanceMap*)map)->GetInstanceScript();
+            m_zoneScript = reinterpret_cast<ZoneScript*>(static_cast<InstanceMap*>(map)->GetInstanceScript());
         else if (!map->IsBattlegroundOrArena())
         {
             if (Battlefield* bf = sBattlefieldMgr->GetBattlefieldToZoneId(GetZoneId()))
@@ -2483,6 +2489,8 @@ void WorldObject::SetZoneScript()
             else
                 m_zoneScript = sOutdoorPvPMgr->GetZoneScript(GetZoneId());
         }
+        else if (map->IsBattlegroundOrArena())
+            m_zoneScript = reinterpret_cast<ZoneScript*>(static_cast<BattlegroundMap*>(map)->GetBattlegroundScript());
     }
 }
 

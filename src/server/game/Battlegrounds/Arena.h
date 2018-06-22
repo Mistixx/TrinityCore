@@ -47,13 +47,39 @@ enum ArenaWorldStates
 
 class TC_GAME_API Arena : public Battleground
 {
-    protected:
-        Arena();
+    public:
+        explicit Arena(BattlegroundTemplate const* battlegroundTemplate);
+        // used for rated arena battles
+        void SetArenaTeamIdForTeam(Team team, uint32 arenaTeamId) { _arenaTeamIds[GetTeamIndexByTeamId(team)] = arenaTeamId; }
+        uint32 GetArenaTeamIdForTeam(Team team) const { return _arenaTeamIds[GetTeamIndexByTeamId(team)]; }
+        uint32 GetArenaTeamIdByIndex(uint32 index) const { return _arenaTeamIds[index]; }
+        void SetArenaMatchmakerRating(Team team, uint32 mmr) { _arenaTeamMMR[GetTeamIndexByTeamId(team)] = mmr; }
+        uint32 GetArenaMatchmakerRating(Team team) const { return _arenaTeamMMR[GetTeamIndexByTeamId(team)]; }
 
+        bool CanAwardArenaPoints() const { return GetMinLevel() >= BG_AWARD_ARENA_POINTS_MIN_LEVEL; }
+
+        void StartBattleground() override;
+        ArenaType GetArenaType() const override { return _arenaType; }
+        void SetArenaType(ArenaType type) { _arenaType = type; } // TODO kill this
+
+        uint8 GetMaxPlayersPerTeam() const override
+        {
+            switch (_arenaType)
+            {
+                case ARENA_TYPE_2v2:
+                    return 2;
+                case ARENA_TYPE_3v3:
+                    return 3;
+                case ARENA_TYPE_5v5:
+                    return 5;
+                default:
+                    return Battleground::GetMaxPlayersPerTeam();
+            }
+        }
+    protected:
         void AddPlayer(Player* player) override;
         void RemovePlayer(Player* /*player*/, ObjectGuid /*guid*/, uint32 /*team*/) override;
 
-        void FillInitialWorldStates(WorldPackets::WorldState::InitWorldStates& packet) override;
         void UpdateArenaWorldState();
 
         void HandleKillPlayer(Player* player, Player* killer) override;
@@ -63,9 +89,14 @@ class TC_GAME_API Arena : public Battleground
     private:
         void RemovePlayerAtLeave(ObjectGuid guid, bool transport, bool sendPacket) override;
         void CheckWinConditions() override;
-        void EndBattleground(uint32 winner) override;
+        void EndBattleground(Team winner) override;
 
         ArenaTeamScore _arenaTeamScores[BG_TEAMS_COUNT];
+
+        uint32 _arenaTeamIds[BG_TEAMS_COUNT];
+        uint32 _arenaTeamMMR[BG_TEAMS_COUNT];
+
+        ArenaType _arenaType;
 };
 
 #endif // TRINITY_ARENA_H

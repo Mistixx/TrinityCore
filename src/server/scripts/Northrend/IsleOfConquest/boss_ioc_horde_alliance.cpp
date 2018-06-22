@@ -16,7 +16,6 @@
  */
 
 #include "ScriptMgr.h"
-#include "BattlegroundIC.h"
 #include "ScriptedCreature.h"
 
 enum BossSpells
@@ -33,6 +32,13 @@ enum BossEvents
     EVENT_DAGGER_THROW        = 2,
     EVENT_CRUSHING_LEAP       = 3,
     EVENT_CHECK_RANGE         = 4
+};
+
+enum Creatures
+{
+    NPC_HIGH_COMMANDER_HALFORD_WYRMBANE = 34924, // Alliance Boss
+    NPC_SEVEN_TH_LEGION_INFANTRY        = 34919, // alliance guard
+    NPC_KOR_KRON_GUARD                  = 34918, // horde guard
 };
 
 class boss_ioc_horde_alliance : public CreatureScript

@@ -21,11 +21,22 @@
 #include "Define.h"
 #include "ObjectGuid.h"
 
+#include <unordered_map>
+
 class Creature;
 class GameObject;
+class Player;
 class Unit;
 class WorldObject;
 struct CreatureData;
+
+namespace WorldPackets
+{
+    namespace WorldState
+    {
+        class InitWorldStates;
+    }
+}
 
 class TC_GAME_API ZoneScript
 {
@@ -56,7 +67,16 @@ class TC_GAME_API ZoneScript
         virtual uint32 GetData(uint32 /*DataId*/) const { return 0; }
         virtual void SetData(uint32 /*DataId*/, uint32 /*Value*/) { }
 
-        virtual void ProcessEvent(WorldObject* /*obj*/, uint32 /*eventId*/) { }
+        virtual void ProcessEvent(WorldObject* /*target*/, uint32 /*eventId*/, WorldObject* /*invoker*/) { }
+
+        virtual void OnQueryCountdownTimer(uint32 /*timerType*/) { }
+
+        virtual bool OnGameObjectClicked(Player* /*player*/, GameObject* /*gameobject*/) { return false; }
+
+        virtual void FillInitialWorldStates(WorldPackets::WorldState::InitWorldStates& packet);
+
+    protected:
+        std::unordered_map<uint32, int32> Worldstates;
 };
 
 #endif

@@ -22,7 +22,7 @@
 #include "ObjectGuid.h"
 #include <string>
 
-enum ScoreType
+enum ScoreType : uint32
 {
     // ALL
     SCORE_KILLING_BLOWS         = 1,
@@ -58,11 +58,10 @@ struct BattlegroundScore
     friend class Battleground;
 
     protected:
-        BattlegroundScore(ObjectGuid playerGuid, uint32 team);
-        virtual ~BattlegroundScore();
+        BattlegroundScore(ObjectGuid playerGuid, uint32 team, std::vector<ScoreType> types = std::vector<ScoreType>());
+        virtual ~BattlegroundScore() = default;
 
-        virtual void UpdateScore(uint32 type, uint32 value);
-
+        virtual void UpdateScore(ScoreType type, uint32 value);
         virtual void BuildPvPLogPlayerDataPacket(WorldPackets::Battleground::PVPLogData::PlayerData& playerData) const;
 
         // For Logging purpose
@@ -75,11 +74,7 @@ struct BattlegroundScore
         uint32 GetDamageDone() const      { return DamageDone; }
         uint32 GetHealingDone() const     { return HealingDone; }
 
-        virtual uint32 GetAttr1() const { return 0; }
-        virtual uint32 GetAttr2() const { return 0; }
-        virtual uint32 GetAttr3() const { return 0; }
-        virtual uint32 GetAttr4() const { return 0; }
-        virtual uint32 GetAttr5() const { return 0; }
+        std::map<ScoreType, uint32/*value*/> ScoreTypes;
 
         ObjectGuid PlayerGuid;
         uint8 TeamId; // BattlegroundTeamId

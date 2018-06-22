@@ -16,7 +16,7 @@
  */
 
 #include "ScriptMgr.h"
-#include "BattlegroundIC.h"
+#include "Battleground.h"
 #include "GameObject.h"
 #include "Map.h"
 #include "MotionMaster.h"
@@ -27,6 +27,39 @@
 #include "SpellInfo.h"
 #include "SpellScript.h"
 #include "Vehicle.h"
+
+enum MiscValues
+{
+    NPC_HIGH_COMMANDER_HALFORD_WYRMBANE = 34924, // Alliance Boss
+    NPC_OVERLORD_AGMAR = 34922, // Horde Boss
+    NPC_KEEP_CANNON = 34944,
+    NPC_DEMOLISHER = 34775,
+    NPC_SIEGE_ENGINE_H = 35069,
+    NPC_SIEGE_ENGINE_A = 34776,
+    NPC_GLAIVE_THROWER_A = 34802,
+    NPC_GLAIVE_THROWER_H = 35273,
+    NPC_CATAPULT = 34793,
+    NPC_HORDE_GUNSHIP_CAPTAIN = 35003,
+    NPC_ALLIANCE_GUNSHIP_CAPTAIN = 34960,
+
+    SPELL_OIL_REFINERY = 68719,
+    SPELL_QUARRY = 68720,
+    SPELL_PARACHUTE = 66656,
+    SPELL_SLOW_FALL = 12438,
+    SPELL_DESTROYED_VEHICLE_ACHIEVEMENT = 68357,
+    SPELL_BACK_DOOR_JOB_ACHIEVEMENT = 68502,
+    SPELL_DRIVING_CREDIT_DEMOLISHER = 68365,
+    SPELL_DRIVING_CREDIT_GLAIVE = 68363,
+    SPELL_DRIVING_CREDIT_SIEGE = 68364,
+    SPELL_DRIVING_CREDIT_CATAPULT = 68362,
+    SPELL_SIMPLE_TELEPORT = 12980,
+    SPELL_TELEPORT_VISUAL_ONLY = 51347,
+    SPELL_PARACHUTE_IC = 66657,
+    SPELL_LAUNCH_NO_FALLING_DAMAGE = 66251,
+
+    ACTION_GUNSHIP_READY = 1,
+    BG_IC_NPC_GUNSHIP_CAPTAIN_1 = 1 // TODO
+};
 
 // TO-DO: This should be done with SmartAI, but yet it does not correctly support vehicles's AIs.
 //        Even adding ReactState Passive we still have issues using SmartAI.
@@ -119,9 +152,7 @@ class npc_ioc_gunship_captain : public CreatureScript
                             DoCast(me, SPELL_TELEPORT_VISUAL_ONLY);
                             break;
                         case EVENT_DESPAWN:
-                            if (me->GetMap()->ToBattlegroundMap())
-                                if (Battleground* bgIoC = me->GetMap()->ToBattlegroundMap()->GetBG())
-                                    bgIoC->DelCreature(BG_IC_NPC_GUNSHIP_CAPTAIN_1);
+                            me->RemoveFromWorld();
                             break;
                         default:
                             break;

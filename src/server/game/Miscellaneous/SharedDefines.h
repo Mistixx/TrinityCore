@@ -4874,6 +4874,7 @@ enum BattlegroundTypeId : uint32
     // 809 = "New Nagrand Arena (Legion)"
     BATTLEGROUND_AF             = 816, // Ashamane's Fall
     // 844 = "New Blade's Edge Arena (Legion)"
+    BATTLEGROUND_SEETHING_SHORE = 894
 };
 
 #define MAX_BATTLEGROUND_TYPE_ID 845
@@ -5038,6 +5039,7 @@ enum BattlegroundQueueTypeId
     BATTLEGROUND_QUEUE_2v2      = 10,
     BATTLEGROUND_QUEUE_3v3      = 11,
     BATTLEGROUND_QUEUE_5v5      = 12,
+    BATTLEGROUND_QUEUE_SEETHING_SHORE = 13,
     MAX_BATTLEGROUND_QUEUE_TYPES
 };
 

@@ -17,7 +17,7 @@
  */
 
 #include "Vehicle.h"
-#include "Battleground.h"
+#include "BattlegroundScript.h"
 #include "Common.h"
 #include "CreatureAI.h"
 #include "DB2Stores.h"
@@ -782,8 +782,8 @@ bool VehicleJoinEvent::Execute(uint64, uint32)
     if (player)
     {
         // drop flag
-        if (Battleground* bg = player->GetBattleground())
-            bg->EventPlayerDroppedFlag(player);
+        if (BattlegroundScript* script = player->GetBattlegroundScript())
+            script->OnPlayerDroppedFlag(player);
 
         player->StopCastingCharm();
         player->StopCastingBindSight();

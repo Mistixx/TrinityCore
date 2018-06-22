@@ -26,6 +26,7 @@
 #include "PhasingHandler.h"
 #include "Spline.h"
 #include "Transport.h"
+#include "BattlegroundScript.h"
 
 TransportTemplate::~TransportTemplate()
 {
@@ -371,19 +372,17 @@ Transport* TransportMgr::CreateTransport(uint32 entry, ObjectGuid::LowType guid 
     if (map)
     {
         // SetZoneScript() is called after adding to map, so fetch the script using map
-        if (map->IsDungeon())
-            if (InstanceScript* instance = static_cast<InstanceMap*>(map)->GetInstanceScript())
-                entry = instance->GetGameObjectEntry(0, entry);
+        entry = map->GetZoneScript()->GetGameObjectEntry(0, entry);
 
         if (!entry)
-            return NULL;
+            return nullptr;
     }
 
     TransportTemplate const* tInfo = GetTransportTemplate(entry);
     if (!tInfo)
     {
         TC_LOG_ERROR("sql.sql", "Transport %u will not be loaded, `transport_template` missing", entry);
-        return NULL;
+        return nullptr;
     }
 
     // create transport...
@@ -402,7 +401,7 @@ Transport* TransportMgr::CreateTransport(uint32 entry, ObjectGuid::LowType guid 
     if (!trans->Create(guidLow, entry, mapId, x, y, z, o, 255))
     {
         delete trans;
-        return NULL;
+        return nullptr;
     }
 
     PhasingHandler::InitDbPhaseShift(trans->GetPhaseShift(), phaseUseFlags, phaseId, phaseGroupId);
@@ -413,14 +412,14 @@ Transport* TransportMgr::CreateTransport(uint32 entry, ObjectGuid::LowType guid 
         {
             TC_LOG_ERROR("entities.transport", "Transport %u (name: %s) attempted creation in instance map (id: %u) but it is not an instanced transport!", entry, trans->GetName().c_str(), mapId);
             delete trans;
-            return NULL;
+            return nullptr;
         }
     }
 
     // use preset map for instances (need to know which instance)
-    trans->SetMap(map ? map : sMapMgr->CreateMap(mapId, NULL));
-    if (map && map->IsDungeon())
-        trans->m_zoneScript = map->ToInstanceMap()->GetInstanceScript();
+    trans->SetMap(map ? map : sMapMgr->CreateMap(mapId, nullptr));
+    if (map)
+        trans->m_zoneScript = map->GetZoneScript();
 
     // Passengers will be loaded once a player is near
     HashMapHolder<Transport>::Insert(trans);

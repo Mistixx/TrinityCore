@@ -19,6 +19,7 @@
 #include "ScriptMgr.h"
 #include "AreaTrigger.h"
 #include "AreaTriggerAI.h"
+#include "BattlegroundMgr.h"
 #include "Chat.h"
 #include "Conversation.h"
 #include "Creature.h"
@@ -83,7 +84,7 @@ struct is_script_database_bound<AreaTriggerScript>
     : std::true_type { };
 
 template<>
-struct is_script_database_bound<BattlegroundScript>
+struct is_script_database_bound<BattlegroundMapScript>
     : std::true_type { };
 
 template<>
@@ -652,11 +653,6 @@ class ScriptRegistrySwapHooks<AreaTriggerEntityScript, Base>
     AreaTrigger, AreaTriggerEntityScript, Base
     > { };
 
-/// This hook is responsible for swapping BattlegroundScript's
-template<typename Base>
-class ScriptRegistrySwapHooks<BattlegroundScript, Base>
-    : public UnsupportedScriptRegistrySwapHooks<Base> { };
-
 /// This hook is responsible for swapping OutdoorPvP's
 template<typename Base>
 class ScriptRegistrySwapHooks<OutdoorPvPScript, Base>
@@ -702,6 +698,35 @@ class ScriptRegistrySwapHooks<InstanceMapScript, Base>
 {
 public:
     ScriptRegistrySwapHooks()  : swapped(false) { }
+
+    void BeforeReleaseContext(std::string const& context) final override
+    {
+        auto const bounds = static_cast<Base*>(this)->_ids_of_contexts.equal_range(context);
+        if (bounds.first != bounds.second)
+            swapped = true;
+    }
+
+    void BeforeSwapContext(bool /*initialize*/) override
+    {
+        swapped = false;
+    }
+
+    void BeforeUnload() final override
+    {
+        ASSERT(!swapped);
+    }
+
+private:
+    bool swapped;
+};
+
+/// This hook is responsible for swapping BattlegroundMapScript's
+template<typename Base>
+class ScriptRegistrySwapHooks<BattlegroundMapScript, Base>
+    : public ScriptRegistrySwapHookBase
+{
+public:
+    ScriptRegistrySwapHooks() : swapped(false) { }
 
     void BeforeReleaseContext(std::string const& context) final override
     {
@@ -1637,6 +1662,14 @@ InstanceScript* ScriptMgr::CreateInstanceData(InstanceMap* map)
     return tmpscript->GetInstanceScript(map);
 }
 
+BattlegroundScript* ScriptMgr::CreateBattlegroundData(BattlegroundMap* map)
+{
+    ASSERT(map);
+
+    GET_SCRIPT_RET(BattlegroundMapScript, map->GetScriptId(), tmpscript, NULL);
+    return tmpscript->GetBattlegroundScript(map);
+}
+
 bool ScriptMgr::OnDummyEffect(Unit* caster, uint32 spellId, SpellEffIndex effIndex, Item* target)
 {
     ASSERT(caster);
@@ -1925,13 +1958,6 @@ bool ScriptMgr::OnAreaTrigger(Player* player, AreaTriggerEntry const* trigger, b
 
     GET_SCRIPT_RET(AreaTriggerScript, sObjectMgr->GetAreaTriggerScriptId(trigger->ID), tmpscript, false);
     return tmpscript->OnTrigger(player, trigger, entered);
-}
-
-Battleground* ScriptMgr::CreateBattleground(BattlegroundTypeId /*typeId*/)
-{
-    /// @todo Implement script-side battlegrounds.
-    ABORT();
-    return NULL;
 }
 
 OutdoorPvP* ScriptMgr::CreateOutdoorPvP(OutdoorPvPData const* data)
@@ -2618,12 +2644,6 @@ AreaTriggerScript::AreaTriggerScript(const char* name)
     ScriptRegistry<AreaTriggerScript>::Instance()->AddScript(this);
 }
 
-BattlegroundScript::BattlegroundScript(const char* name)
-    : ScriptObject(name)
-{
-    ScriptRegistry<BattlegroundScript>::Instance()->AddScript(this);
-}
-
 OutdoorPvPScript::OutdoorPvPScript(const char* name)
     : ScriptObject(name)
 {
@@ -2738,7 +2758,6 @@ template class TC_GAME_API ScriptRegistry<ItemScript>;
 template class TC_GAME_API ScriptRegistry<CreatureScript>;
 template class TC_GAME_API ScriptRegistry<GameObjectScript>;
 template class TC_GAME_API ScriptRegistry<AreaTriggerScript>;
-template class TC_GAME_API ScriptRegistry<BattlegroundScript>;
 template class TC_GAME_API ScriptRegistry<OutdoorPvPScript>;
 template class TC_GAME_API ScriptRegistry<CommandScript>;
 template class TC_GAME_API ScriptRegistry<WeatherScript>;
