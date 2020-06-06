@@ -682,7 +682,7 @@ void BattlefieldTB::OnGameObjectCreate(GameObject* go)
     }
 };
 
-void BattlefieldTB::ProcessEvent(WorldObject* obj, uint32 eventId)
+void BattlefieldTB::ProcessEvent(WorldObject* obj, uint32 eventId, WorldObject* /*invoker*/)
 {
     if (!IsWarTime())
         return;
@@ -867,5 +867,5 @@ void TolBaradCapturePoint::ChangeTeam(TeamId /*oldTeam*/)
     }
 
     // Update counter
-    m_Bf->ProcessEvent(nullptr, EVENT_COUNT_CAPTURED_BASE);
+    m_Bf->ProcessEvent(nullptr, EVENT_COUNT_CAPTURED_BASE, nullptr);
 }
